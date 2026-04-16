@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMS Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --bg2: #131720;
+      --bg3: #1a1f2e;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.12);
+      --amber: #f0a930;
+      --amber-dim: rgba(240,169,48,0.12);
+      --green: #3dd68c;
+      --green-dim: rgba(61,214,140,0.1);
+      --red: #f05252;
+      --red-dim: rgba(240,82,82,0.12);
+      --blue: #60a5fa;
+      --blue-dim: rgba(96,165,250,0.1);
+      --text: #e8e4d9;
+      --text2: #9098a8;
+      --text3: #5a6270;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: var(--sans);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .scanlines {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; z-index: 1000;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    }
+
+    header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border2);
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      color: var(--amber);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text3);
+      letter-spacing: 0.05em;
+    }
+
+    #clock { color: var(--text2); }
+
+    .status-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-right: 6px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .content {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .row-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--amber);
+      opacity: 0.5;
+    }
+
+    .metric-card.alert::before { background: var(--red); opacity: 1; }
+    .metric-card.ok::before { background: var(--green); opacity: 0.6; }
+
+    .mc-type {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .mc-value {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .mc-value.has-alert { color: var(--red); }
+
+    .mc-meta {
+      font-size: 11px;
+      color: var(--text3);
+      display: flex;
+      gap: 12px;
+      font-family: var(--mono);
+    }
+
+    .mc-meta span { display: flex; gap: 4px; align-items: center; }
+    .mc-meta .lbl { color: var(--text3); }
+    .mc-meta .val { color: var(--text2); }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .chart-panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+
+    .cp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .cp-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--text2);
+      text-transform: uppercase;
+    }
+
+    .cp-threshold {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text3);
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 10px;
+    }
+
+    .table-panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--text2);
+      text-transform: uppercase;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text3);
+      padding: 8px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg3);
+    }
+
+    tbody td {
+      padding: 9px 16px;
+      font-size: 12px;
+      font-family: var(--mono);
+      border-bottom: 1px solid var(--border);
+      color: var(--text2);
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,0.02); }
+    tbody tr.is-alert td { background: var(--red-dim); color: #e8c5c5; }
+
+    .sid { color: var(--text); font-weight: 500; }
+
+    .type-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    .type-badge.temperature { background: rgba(240,169,48,0.15); color: var(--amber); border: 1px solid rgba(240,169,48,0.25); }
+    .type-badge.pressure    { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(96,165,250,0.25); }
+    .type-badge.flow_rate   { background: var(--green-dim); color: var(--green); border: 1px solid rgba(61,214,140,0.2); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-badge.ok    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(61,214,140,0.2); }
+    .status-badge.alert { background: var(--red-dim); color: var(--red); border: 1px solid rgba(240,82,82,0.25); }
+
+    .val-num { color: var(--text); font-weight: 500; }
+
+    #refresh-btn {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--text3);
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 3px;
+      padding: 3px 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    #refresh-btn:hover { color: var(--amber); border-color: rgba(240,169,48,0.4); }
+
+    .empty-state {
+      padding: 24px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text3);
+    }
+  </style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    IMS · Industrial Monitoring
+  </div>
+  <div class="header-right">
+    <span><span class="status-dot"></span><span id="conn-status">Connecting…</span></span>
+    <span id="clock">--:--:--</span>
+  </div>
+</header>
+
+<div class="content">
+
+  <div>
+    <div class="row-label">System Metrics · Last Hour Avg</div>
+    <div class="cards-grid">
+      <div class="metric-card" id="mc-temperature">
+        <div class="mc-type">Temperature</div>
+        <div class="mc-value" id="mc-val-temperature">—</div>
+        <div class="mc-meta">
+          <span><span class="lbl">MIN</span><span class="val" id="mc-min-temperature">—</span></span>
+          <span><span class="lbl">MAX</span><span class="val" id="mc-max-temperature">—</span></span>
+          <span><span class="lbl">ALRT</span><span class="val" id="mc-alert-temperature">0</span></span>
+        </div>
+      </div>
+      <div class="metric-card" id="mc-pressure">
+        <div class="mc-type">Pressure</div>
+        <div class="mc-value" id="mc-val-pressure">—</div>
+        <div class="mc-meta">
+          <span><span class="lbl">MIN</span><span class="val" id="mc-min-pressure">—</span></span>
+          <span><span class="lbl">MAX</span><span class="val" id="mc-max-pressure">—</span></span>
+          <span><span class="lbl">ALRT</span><span class="val" id="mc-alert-pressure">0</span></span>
+        </div>
+      </div>
+      <div class="metric-card" id="mc-flow_rate">
+        <div class="mc-type">Flow Rate</div>
+        <div class="mc-value" id="mc-val-flow_rate">—</div>
+        <div class="mc-meta">
+          <span><span class="lbl">MIN</span><span class="val" id="mc-min-flow_rate">—</span></span>
+          <span><span class="lbl">MAX</span><span class="val" id="mc-max-flow_rate">—</span></span>
+          <span><span class="lbl">ALRT</span><span class="val" id="mc-alert-flow_rate">0</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="row-label">Live Signal · Last 30 Readings</div>
+    <div class="charts-grid">
+      <div class="chart-panel">
+        <div class="cp-header">
+          <div class="cp-title">Temperature</div>
+          <div class="cp-threshold">10 – 80 °C</div>
+        </div>
+        <div style="position:relative;height:110px;">
+          <canvas id="chart-temperature" role="img" aria-label="Temperature readings over time"></canvas>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="cp-header">
+          <div class="cp-title">Pressure</div>
+          <div class="cp-threshold">1.0 – 10.0 bar</div>
+        </div>
+        <div style="position:relative;height:110px;">
+          <canvas id="chart-pressure" role="img" aria-label="Pressure readings over time"></canvas>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="cp-header">
+          <div class="cp-title">Flow Rate</div>
+          <div class="cp-threshold">5 – 50 L/min</div>
+        </div>
+        <div style="position:relative;height:110px;">
+          <canvas id="chart-flow_rate" role="img" aria-label="Flow rate readings over time"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="table-panel">
+      <div class="table-header">
+        <div class="table-title">Live Readings</div>
+        <button id="refresh-btn" onclick="refresh()">↺ Refresh</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Time</th><th>Sensor</th><th>Type</th><th>Value</th><th>Status</th>
+        </tr></thead>
+        <tbody id="readings-body">
+          <tr><td colspan="5" class="empty-state">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-panel">
+      <div class="table-header">
+        <div class="table-title" style="color:var(--red)">⚠ Recent Alerts</div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Time</th><th>Sensor</th><th>Value</th>
+        </tr></thead>
+        <tbody id="alerts-body">
+          <tr><td colspan="3" class="empty-state">No alerts</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const UNITS = { temperature:'°C', pressure:'bar', flow_rate:'L/min' };
+const THRESHOLDS = { temperature:{min:10,max:80}, pressure:{min:1,max:10}, flow_rate:{min:5,max:50} };
+const COLORS = { temperature:'#f0a930', pressure:'#60a5fa', flow_rate:'#3dd68c' };
+const MAX_PTS = 30;
+
+function clockTick() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-GB', {hour12:false});
+}
+setInterval(clockTick, 1000);
+clockTick();
+
+const charts = {};
+
+function makeChart(type) {
+  const ctx = document.getElementById('chart-' + type);
+  charts[type] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        borderColor: COLORS[type],
+        borderWidth: 1.5,
+        pointBackgroundColor: [],
+        pointRadius: 2.5,
+        pointHoverRadius: 4,
+        fill: true,
+        backgroundColor: COLORS[type] + '14',
+        tension: 0.35,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1f2e',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: '#9098a8',
+          bodyColor: '#e8e4d9',
+          titleFont: { family: 'IBM Plex Mono', size: 10 },
+          bodyFont:  { family: 'IBM Plex Mono', size: 11 },
+          callbacks: { label: c => c.parsed.y.toFixed(2) + ' ' + UNITS[type] }
+        }
+      },
+      scales: {
+        x: { display: false },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+          border: { display: false },
+          ticks: { color: '#5a6270', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 4 }
+        }
+      }
+    }
+  });
+}
+
+['temperature', 'pressure', 'flow_rate'].forEach(makeChart);
+
+function pushPoint(type, label, value) {
+  const ch = charts[type];
+  const { min, max } = THRESHOLDS[type];
+  const isAlert = value < min || value > max;
+  ch.data.labels.push(label);
+  ch.data.datasets[0].data.push(value);
+  ch.data.datasets[0].pointBackgroundColor.push(isAlert ? '#f05252' : COLORS[type]);
+  if (ch.data.labels.length > MAX_PTS) {
+    ch.data.labels.shift();
+    ch.data.datasets[0].data.shift();
+    ch.data.datasets[0].pointBackgroundColor.shift();
+  }
+  ch.update('none');
+}
+
+async function fetchSummary() {
+  const res = await fetch('/api/summary');
+  const data = await res.json();
+  data.forEach(r => {
+    const avg = parseFloat(r.avg_value);
+    const alerts = parseInt(r.alert_count) || 0;
+    const mc = document.getElementById('mc-' + r.sensor_type);
+    document.getElementById('mc-val-' + r.sensor_type).textContent =
+      avg.toFixed(1) + ' ' + UNITS[r.sensor_type];
+    document.getElementById('mc-min-' + r.sensor_type).textContent =
+      parseFloat(r.min_value).toFixed(1);
+    document.getElementById('mc-max-' + r.sensor_type).textContent =
+      parseFloat(r.max_value).toFixed(1);
+    document.getElementById('mc-alert-' + r.sensor_type).textContent = alerts;
+    mc.className = 'metric-card ' + (alerts > 0 ? 'alert' : 'ok');
+    document.getElementById('mc-val-' + r.sensor_type).className =
+      'mc-value' + (alerts > 0 ? ' has-alert' : '');
+  });
+}
+
+async function fetchReadings() {
+  const res = await fetch('/api/readings?limit=30');
+  const rows = await res.json();
+  const seen = new Set();
+  rows.forEach(r => {
+    if (!seen.has(r.sensor_type)) {
+      seen.add(r.sensor_type);
+      pushPoint(r.sensor_type, r.timestamp.split(' ')[1], parseFloat(r.value));
+    }
+  });
+  const tbody = document.getElementById('readings-body');
+  tbody.innerHTML = rows.slice(0, 20).map(r => `
+    <tr class="${r.is_alert ? 'is-alert' : ''}">
+      <td>${r.timestamp.split(' ')[1]}</td>
+      <td class="sid">${r.sensor_id}</td>
+      <td><span class="type-badge ${r.sensor_type}">${r.sensor_type.replace('_',' ')}</span></td>
+      <td class="val-num">${r.value} ${UNITS[r.sensor_type]}</td>
+      <td><span class="status-badge ${r.is_alert ? 'alert' : 'ok'}">${r.is_alert ? 'ALERT' : 'OK'}</span></td>
+    </tr>`).join('');
+}
+
+async function fetchAlerts() {
+  const res = await fetch('/api/alerts');
+  const rows = await res.json();
+  const tbody = document.getElementById('alerts-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No alerts</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.slice(0, 10).map(r => `
+    <tr class="is-alert">
+      <td>${r.timestamp.split(' ')[1] || r.timestamp}</td>
+      <td class="sid">${r.sensor_id}</td>
+      <td class="val-num" style="color:var(--red)">${r.value} ${UNITS[r.sensor_type]}</td>
+    </tr>`).join('');
+}
+
+async function refresh() {
+  try {
+    await Promise.all([fetchSummary(), fetchReadings(), fetchAlerts()]);
+    document.getElementById('conn-status').textContent =
+      'Live · ' + new Date().toLocaleTimeString('en-GB', {hour12:false});
+  } catch(e) {
+    document.getElementById('conn-status').textContent = 'No connection';
+  }
+}
+
+refresh();
+setInterval(refresh, 4000);
+</script>
+
+</body>
+</html>
