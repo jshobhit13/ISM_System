@@ -4,43 +4,7 @@
 
 A dashboard I built to monitor industrial sensors in real time. It tracks temperature, pressure, and flow rate, flags anomalies, and shows live charts. Backend is Flask + MySQL, frontend is plain JS with Chart.js.
 
-
-
-\---
-
-
-
-\## Screenshots
-
-
-
-\### Database Setup
-
-!\[DB Setup](screenshots/db\_setup.png)
-
-
-
-\### Live Dashboard
-
-!\[Dashboard](screenshots/dashboard\_charts.png)
-
-
-
-\### Live Readings
-
-!\[Live Readings](screenshots/live\_readings.png)
-
-
-
-\### Alert Triggered
-
-!\[Alert](screenshots/alert\_row.png)
-
-
-
-\---
-
-
+---
 
 \## What it does
 
